@@ -1,0 +1,24 @@
+# Secrets
+.env
+
+# Data folder (keep directory, ignore contents)
+data/*
+!data/.gitkeep
+
+# Model weights
+*.pt
+*.pth
+*.safetensors
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS & Editor files
+.DS_Store
+.vscode/
