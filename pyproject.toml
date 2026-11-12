@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ailab"
+version = "0.1.0"
+description = "Environment checker for ailab"
+requires-python = ">=3.10.2"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
