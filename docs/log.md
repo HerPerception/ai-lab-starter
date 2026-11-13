@@ -45,3 +45,27 @@ docs/log.md
 ```
 
 **VERDICT:** The command did not quite match the result because the docs folder was inexistent at the time the prediction was made. The prediction was made with the assumption that the folder already exists.
+
+
+# Why I Added the pyproject.toml File at Stage 1.
+**What it fixes:** Python normally does not know where the local ailab folder lives unless I run commands from the exact right directory.
+
+**How it helps the tests:** Adding pyproject.toml let me install ailab into my venv as an editable package. Now my test files can simply write 'import ailab' from anywhere, and my code edits take effect immediately.
+
+
+# GIT CHECK FEATURE
+## Predicting what could go wrong:
+**Git works normally (Pass):** git is installed, runs git --version, and returns a version string with exit code 0.
+
+**Git is not installed (Fail):** Your computer cannot find git anywhere on your system PATH. This is a clear failure and needs a helpful fix hint.
+
+**Git freezes or hangs (Couldn't determine):** Something blocks git from finishing in time (such as a stalled network drive or popup prompt), hitting your timeout limit.
+
+**Git is broken or blocked (Couldn't determine):** A git file exists on your computer, so it is not "missing", but the OS refuses to run it due to a permission error or corrupted file.
+
+## The Python Tools I used:
+**shutil.which()**
+
+**subprocess.run()**
+
+*_(The uses of these tools is documented in notebooks/dependencies.md)_*

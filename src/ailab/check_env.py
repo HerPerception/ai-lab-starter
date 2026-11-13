@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-import sys
+import shutil, subprocess, sys
 
 
 class Status(Enum):
@@ -41,8 +41,15 @@ def check_python(
   return Result(name="Python", status=Status.PASS, detail=version_str)
 
 
+def check_git(runtime_val: str):
+  re = shutil.which(' '.join(runtime_val))
+  res = subprocess.run(args=runtime_val, text=True, capture_output=True, check=True, timeout=5)
+  return re, res
+
 if __name__ == "__main__":
   output = check_python()
   print(f"[{output.status.value}] {output.name} {output.detail}")
   if output.fix_hint:
     print(f"  -> Fix: {output.fix_hint}")
+
+print(check_git(["git", "-v"]))
