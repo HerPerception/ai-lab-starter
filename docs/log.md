@@ -70,6 +70,7 @@ docs/log.md
 
 *_(The uses of these tools is documented in notebooks/dependencies.md)_*
 
+
 **PREDICTION - 4:** Running the script after building the git checker feature would print the names and versions of both Python and Git with a PASS status.
 
 **ACTUAL RESULT:** When I ran 'ailab' from the project root directory, it threw errors because the venv was not correctly set up (venv was in the wrong folder and two vital lines in pyproject.toml were commented out by me and I forgot to uncomment it). But after the fix and setting up pyproject.toml and venv correctly, it gave the predicted output:
@@ -81,3 +82,16 @@ docs/log.md
 ```
 
 **VERDICT:** The prediction matched the result once the environments were set up. This has taught me to always verify and not assume the right environment needed for my project has been set up and test to make sure. It further strengthens my mindset on the usefulness of this project as it verifies that the right environment is set up and the necessary requirements are satisfied before the programmer starts building.
+
+
+**PREDICTION - 5:** Running the script after building the venv_checker feature would print versions for both Python and Git and print PASS for all three checks and details for venv.
+
+**ACTUAL RESULT:** 
+```
+(venv) ➜  ai-lab-starter git:(feature/check-env) ✗ ailab
+[PASS] Python 3.12.3
+[PASS] Git 2.43.0
+[PASS] Virtualenv active (/home/recoding/ai-lab-starter/venv)
+```
+
+**VERDICT:** My prediction matched the result, output for venv_checker included the venv path (although I did not include the details for the venv_checker output).
