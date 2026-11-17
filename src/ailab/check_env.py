@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+import os
 import shutil
 import subprocess
 import sys
@@ -115,9 +116,46 @@ def check_git(command: list[str] | None = None) -> Result:
         return evaluate_git(git_path=None)
 
 
+def evaluate_venv(
+    prefix: str,
+    base_prefix: str,
+    conda_env: str | None = None,
+) -> Result:
+    """Determine if an isolated virtual or Conda environment is active."""
+    if prefix != base_prefix:
+        return Result(
+            name="Virtualenv",
+            status=Status.PASS,
+            detail=f"active ({prefix})",
+        )
+
+    if conda_env and conda_env != "base":
+        return Result(
+            name="Virtualenv",
+            status=Status.PASS,
+            detail=f"conda ({conda_env})",
+        )
+
+    return Result(
+        name="Virtualenv",
+        status=Status.WARN,
+        detail="no active virtual environment detected",
+        fix_hint="Create and activate one: python -m venv .venv && source .venv/bin/activate",
+    )
+
+
+def check_venv() -> Result:
+    """Inspect Python's runtime prefixes and environment variables for a venv."""
+    return evaluate_venv(
+        prefix=sys.prefix,
+        base_prefix=sys.base_prefix,
+        conda_env=os.environ.get("CONDA_DEFAULT_ENV"),
+    )
+
+
 def main() -> None:
     """Run all environment checks and print formatted results."""
-    checks = [check_python(), check_git()]
+    checks = [check_python(), check_git(), check_venv()]
     for result in checks:
         print(f"[{result.status.value}] {result.name} {result.detail}")
         if result.fix_hint:
