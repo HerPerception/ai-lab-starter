@@ -25,3 +25,9 @@ venv/
 
 # Metadata files
 *.egg-info/
+
+# Packaging & build artifacts
+build/
+dist/
+*.egg-info/
+
