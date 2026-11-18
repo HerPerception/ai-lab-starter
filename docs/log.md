@@ -1,4 +1,4 @@
-# PREDICTION VS. ACTUAL RESULTS
+## PREDICTION VS. ACTUAL RESULTS
 **PREDICTION - 1:** git log would print one commit made yesterday.
 
 **ACTUAL RESULT:** git log actually printed one commit:
@@ -95,3 +95,40 @@ docs/log.md
 ```
 
 **VERDICT:** My prediction matched the result, output for venv_checker included the venv path (although I did not include the details for the venv_checker output).
+
+
+# GPU CHECK FEATURE
+
+## DESIGN DECISIONS
+|State | PyTorch Installed? | CUDA/MPS Available? | nvidia-smi works? | Outcome | Detail and Fix_hint |
+|------|------|-------|------|-------|--------|
+|Everything working(NVIDIA) | Yes | CUDA = True | Yes | PASS | Report device name + VRAM(no hint). |
+|Apple Silicon Mac | Yes | MPS = True | No | PASS | Report "Apple Silicon (MPS)" (no hint). |
+|NVIDIA hardware present, but CPU-only PyTorch | Yes | False | Yes | WARN | Hardware  exists, but PyTorch can not see it. Hint: reinstall PyTorch with CUDA support. |
+|No GPU hardware at all | Yes | False | No(missing/no devices) | WARN | "No GPU found, using CPU". Hint: Nothing needs fixing logically; Use cloud GPUs for heavy training. |
+|Driver/tool broken or hanging | Yes | False | Error/Timeout | UNDETERMINED | "nvidia-smi failed or timed out". Hint: run nvidia-smi manually to check driver state. |
+|PyTorch not installed | No | N/A | Yes/No | UNDETERMINED (or WARN) | "PyTorch not installed; can not check GPU runtime".Hint:pip install torch |
+
+
+## PREDICTION(S)
+**PREDICTION - 6:** Output after building the GPU_checker feature will include result for the GPU check.
+
+**ACTUAL RESULT:** 
+```
+(venv) ➜  ai-lab-starter git:(feature/check-env) ✗ ailab
+[PASS] Python 3.12.3
+[PASS] Git 2.43.0
+[PASS] Virtualenv active (/home/recoding/ai-lab-starter/venv)
+[COULDN'T DETERMINE] GPU PyTorch not installed; cannot verify GPU access
+  -> Fix: Install PyTorch to enable GPU detection: pip install torch
+```
+
+**VERDICT:** My prediction matched the output, although my predicition did not include the detail and it was vague. My prediction did not include that the status would be "COULDN'T DETEMINE".
+
+## NOTE FOR THE GPU_CHECKER FEATURE
+On my machine (at the time this feature was originally built), the “PyTorch missing” states can no longer be reached by a real run because PyTorch has been installed. Only the fake-input tests exercise them now. That’s a good reason for the asking/deciding split I built, since it lets me test states my machine can’t produce.
+
+
+
+
+
