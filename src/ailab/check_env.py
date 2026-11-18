@@ -1,10 +1,14 @@
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from collections.abc import Mapping, Sequence
 import os
 import shutil
 import subprocess
 import sys
+
+from ailab.logging_setup import configure_logging
+
+logger = configure_logging()
 
 
 class Status(Enum):
@@ -36,6 +40,7 @@ PLACEHOLDER_TOKENS: tuple[str, ...] = (
     "todo",
     "...",
 )
+
 
 def check_python(
     version_info: tuple[int, int, int] = sys.version_info[:3],
@@ -164,6 +169,7 @@ def check_venv() -> Result:
         base_prefix=sys.base_prefix,
         conda_env=os.environ.get("CONDA_DEFAULT_ENV"),
     )
+
 
 def evaluate_gpu(
     torch_installed: bool,
@@ -321,7 +327,7 @@ def evaluate_api_keys(
                 Result(
                     name=key,
                     status=Status.WARN,
-                    detail="not set",
+                    detail="not set (optional for now)",
                     fix_hint=f"Add {key} to your .env file and load it into your environment",
                 )
             )
@@ -364,19 +370,81 @@ def check_api_keys(keys: Sequence[str] = EXPECTED_API_KEYS) -> list[Result]:
     """Read process environment variables and verify expected API keys safely."""
     return evaluate_api_keys(env=os.environ, keys=keys)
 
-def main() -> None:
-    """Run all environment checks and print formatted results."""
-    checks = [
-        check_python(),
-        check_git(),
-        check_venv(),
-        check_gpu(),
-        *check_api_keys(),
+
+CheckFn = Callable[[], Result | list[Result]]
+
+
+def run_all_checks(
+    checks: Sequence[tuple[str, CheckFn]] | None = None,
+) -> list[Result]:
+    """Execute all configured checks safely so one crash never halts the rest."""
+    default_checks: list[tuple[str, CheckFn]] = [
+        ("Python", check_python),
+        ("Git", check_git),
+        ("Virtualenv", check_venv),
+        ("GPU", check_gpu),
+        ("API Keys", check_api_keys),
     ]
-    for result in checks:
-        print(f"[{result.status.value}] {result.name} {result.detail}")
+    active_checks = checks if checks is not None else default_checks
+    collected: list[Result] = []
+
+    for check_name, check_fn in active_checks:
+        try:
+            outcome = check_fn()
+            if isinstance(outcome, list):
+                collected.extend(outcome)
+            else:
+                collected.append(outcome)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Check '%s' raised an unexpected error", check_name)
+            collected.append(
+                Result(
+                    name=check_name,
+                    status=Status.UNDETERMINED,
+                    detail=f"unexpected error: {exc}",
+                    fix_hint="Re-run with AILAB_LOG_LEVEL=DEBUG to inspect the full traceback",
+                )
+            )
+
+    return collected
+
+
+def format_results(results: Sequence[Result]) -> str:
+    """Format all check results into a consistent report with a summary footer."""
+    lines: list[str] = []
+
+    for result in results:
+        lines.append(f"[{result.status.value}] {result.name}: {result.detail}")
         if result.fix_hint:
-            print(f"  -> Fix: {result.fix_hint}")
+            lines.append(f"  -> Fix: {result.fix_hint}")
+
+    passed = sum(1 for r in results if r.status == Status.PASS)
+    warned = sum(1 for r in results if r.status == Status.WARN)
+    failed = sum(1 for r in results if r.status == Status.FAIL)
+    undetermined = sum(1 for r in results if r.status == Status.UNDETERMINED)
+
+    lines.append("")
+    lines.append(
+        f"Summary: {passed} passed, {warned} warnings, {failed} failed, {undetermined} undetermined"
+    )
+    return "\n".join(lines)
+
+
+def determine_exit_code(results: Sequence[Result]) -> int:
+    """Return 1 if any check failed, 2 if any is undetermined, or 0 otherwise."""
+    if any(r.status == Status.FAIL for r in results):
+        return 1
+    if any(r.status == Status.UNDETERMINED for r in results):
+        return 2
+    return 0
+
+
+def main() -> int:
+    """Run all environment checks, print the formatted report, and return an exit code."""
+    results = run_all_checks()
+    print(format_results(results))
+    return determine_exit_code(results)
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

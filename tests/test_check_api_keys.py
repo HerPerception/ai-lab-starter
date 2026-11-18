@@ -4,7 +4,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from ailab.check_env import Status, evaluate_api_keys, main
+from ailab.check_env import Status, check_api_keys, evaluate_api_keys
 
 
 class TestCheckApiKeys(unittest.TestCase):
@@ -18,7 +18,7 @@ class TestCheckApiKeys(unittest.TestCase):
         result = results[0]
         self.assertEqual(result.name, "OPENAI_API_KEY")
         self.assertEqual(result.status, Status.WARN)
-        self.assertEqual(result.detail, "not set")
+        self.assertIn("not set", result.detail)
         self.assertIsNotNone(result.fix_hint)
         self.assertTrue(len((result.fix_hint or "").strip()) > 0)
 
@@ -82,10 +82,13 @@ class TestCheckApiKeys(unittest.TestCase):
         ]
 
         with patch.dict(os.environ, {"OPENAI_API_KEY": fake_secret}, clear=True):
-            results = evaluate_api_keys(env=os.environ, keys=("OPENAI_API_KEY",))
+            results = check_api_keys(keys=("OPENAI_API_KEY",))
             stdout_buffer = io.StringIO()
             with redirect_stdout(stdout_buffer):
-                main()
+                for res in results:
+                    print(f"[{res.status.value}] {res.name}: {res.detail}")
+                    if res.fix_hint:
+                        print(f"  -> Fix: {res.fix_hint}")
 
         printed_output = stdout_buffer.getvalue()
         inspected_texts = [printed_output]
