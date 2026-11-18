@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from collections.abc import Mapping, Sequence
 import os
 import shutil
 import subprocess
@@ -22,7 +23,19 @@ class Result:
 
 
 MIN_VERSION = "3.10.2"
-
+EXPECTED_API_KEYS: tuple[str, ...] = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
+PLACEHOLDER_TOKENS: tuple[str, ...] = (
+    "your_",
+    "your-",
+    "changeme",
+    "placeholder",
+    "replace",
+    "example",
+    "dummy",
+    "insert",
+    "todo",
+    "...",
+)
 
 def check_python(
     version_info: tuple[int, int, int] = sys.version_info[:3],
@@ -274,14 +287,96 @@ def check_gpu() -> Result:
         )
 
 
+def _looks_like_placeholder(value: str) -> bool:
+    """Detect common template placeholders without hardcoding every exact string."""
+    stripped = value.strip()
+    lowered = stripped.lower()
+
+    if (stripped.startswith("<") and stripped.endswith(">")) or (
+        stripped.startswith("[") and stripped.endswith("]")
+    ):
+        return True
+
+    if any(token in lowered for token in PLACEHOLDER_TOKENS):
+        return True
+
+    if len(stripped) >= 4 and len(set(stripped)) == 1:
+        return True
+
+    return False
+
+
+def evaluate_api_keys(
+    env: Mapping[str, str],
+    keys: Sequence[str] = EXPECTED_API_KEYS,
+) -> list[Result]:
+    """Evaluate expected API keys from an environment mapping without leaking values."""
+    results: list[Result] = []
+
+    for key in keys:
+        raw_value = env.get(key)
+
+        if raw_value is None:
+            results.append(
+                Result(
+                    name=key,
+                    status=Status.WARN,
+                    detail="not set",
+                    fix_hint=f"Add {key} to your .env file and load it into your environment",
+                )
+            )
+            continue
+
+        if raw_value.strip() == "":
+            results.append(
+                Result(
+                    name=key,
+                    status=Status.WARN,
+                    detail="set, but empty",
+                    fix_hint=f"Provide a non-empty secret value for {key} in your .env file",
+                )
+            )
+            continue
+
+        if _looks_like_placeholder(raw_value):
+            results.append(
+                Result(
+                    name=key,
+                    status=Status.WARN,
+                    detail="looks like a template placeholder",
+                    fix_hint=f"Replace the placeholder in {key} with your real API key",
+                )
+            )
+            continue
+
+        results.append(
+            Result(
+                name=key,
+                status=Status.PASS,
+                detail="set",
+            )
+        )
+
+    return results
+
+
+def check_api_keys(keys: Sequence[str] = EXPECTED_API_KEYS) -> list[Result]:
+    """Read process environment variables and verify expected API keys safely."""
+    return evaluate_api_keys(env=os.environ, keys=keys)
+
 def main() -> None:
     """Run all environment checks and print formatted results."""
-    checks = [check_python(), check_git(), check_venv(), check_gpu()]
+    checks = [
+        check_python(),
+        check_git(),
+        check_venv(),
+        check_gpu(),
+        *check_api_keys(),
+    ]
     for result in checks:
         print(f"[{result.status.value}] {result.name} {result.detail}")
         if result.fix_hint:
             print(f"  -> Fix: {result.fix_hint}")
-
 
 if __name__ == "__main__":
     main()
