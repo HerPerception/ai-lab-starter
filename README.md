@@ -33,6 +33,10 @@
 | `1` | Environment broken | One or more checks failed (such as missing Git or an unsupported Python version). |
 | `2` | Inconclusive | No checks failed, but at least one check could not complete or determine a result. |
 
+### Current Scope (Stage 1)
+* **Included:** Environment diagnostics for Python version, Git, active virtual environment, GPU/PyTorch visibility, and environment variables.
+* **Not yet implemented:** CPU/GPU matrix multiplication benchmarks, VRAM model capacity estimation, and automatic `.env` file loading.
+
 ## Results
 
 ## What Broke
