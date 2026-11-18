@@ -129,6 +129,20 @@ docs/log.md
 On my machine (at the time this feature was originally built), the “PyTorch missing” states can no longer be reached by a real run because PyTorch has been installed. Only the fake-input tests exercise them now. That’s a good reason for the asking/deciding split I built, since it lets me test states my machine can’t produce.
 
 
+# API KEYS SAFETY CHECKER FEATURE
+## DESIGN DECISION
 
+|Key State | How to Detect it | Outcome | Detail and Fix_Hint |
+|------|------|------|------|
+|Not set | val is None (missing from os.environ) | WARN | "OPENAI_API_KEY: not set" + Hint: "Add key to .env and load it into your shell" |
+|Set, but empty | val.strip() == "" (blank or spaces only) | WARN | "OPENAI_API_KEY: empty" + Hint: "Set a non-empty value for OPENAI_API_KEY" |
+|Placeholder value | Heuristic match (see below) | WARN | "OPENAI_API_KEY: looks like a placeholder" + Hint: "Replace template value with your actual API key" |
+|Real_looking value | Non-empty and passes placeholder checks | PASS | "OPENAI_API_KEY: set" (no fix_hint, no length, no prefix). |  
 
+### How to detect a placeholder without hardcoding every string: Check structural patterns common to .env.example templates:
+1. Bracketed/templated markers: Starts/ends with <...> or [...] or contains ... (e.g., sk-..., <your-key>).
+2. Placeholder keywords (case-insensitive): Contains substrings like your_, your-, changeme, placeholder, replace, example, dummy, insert, or todo.
+3. Repeated single character: All characters are identical (e.g., xxxxxxxx or 00000000).
 
+### Test Idea in Plain Words
+*"Create a fake environment containing a recognizable secret key (sk-proj-ULTRASECRET987654321XYZ). Run both the evaluation function and the full CLI main() output capture. Inspect every field of the returned Result objects and every character printed to stdout, confirming that neither the full key, any substring of it, nor its character length appears anywhere."*
