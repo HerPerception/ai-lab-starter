@@ -165,3 +165,6 @@ I noticed the tests took more than 2seconds (2.0064s) and when I checked, I foun
 |Any FAIL	| 1	| Broken setup. Missing Git or outdated Python means downstream commands will crash, so scripts and CI jobs must stop immediately. |
 |Any UNDETERMINED (with zero FAILs)	| 2 (or 1) | Unverified setup. Distinguishing 2 (inconclusive/error) from 1 (confirmed failure) lets advanced scripts tell whether a tool is genuinely missing (1) or just timed out/blocked (2). |
 
+### Logging Decision (`logging_setup.py`)
+- **Decision:** Keep `logging_setup.py` wired into `run_all_checks()` for unexpected exceptions, while deferring routine diagnostic logging for normal check outcomes.
+- **Why:** Normal check outcomes (`PASS`, `WARN`, `FAIL`, `UNDETERMINED`) already belong in the formatted CLI report (`format_results()`). Sending routine results to logs would duplicate output and clutter the terminal, whereas reserving `logging` (`logger.exception` / `AILAB_LOG_LEVEL=DEBUG`) for unexpected crashes keeps diagnostic tracebacks separate from user-facing output.
