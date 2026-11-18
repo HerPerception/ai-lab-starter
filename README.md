@@ -25,6 +25,13 @@
    python -m unittest discover -s tests -v
    ```
 
+### Exit Codes
+
+| Exit Code | Meaning | When It Happens |
+| :--- | :--- | :--- |
+| `0` | Ready to run | All checks passed, or only non-blocking warnings occurred (such as no GPU or optional API keys unset). |
+| `1` | Environment broken | One or more checks failed (such as missing Git or an unsupported Python version). |
+| `2` | Inconclusive | No checks failed, but at least one check could not complete or determine a result. |
 
 ## Results
 
