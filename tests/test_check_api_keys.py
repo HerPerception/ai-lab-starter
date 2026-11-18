@@ -3,9 +3,7 @@ import io
 import os
 import unittest
 from unittest.mock import patch
-
-from ailab.check_env import Status, check_api_keys, evaluate_api_keys
-
+from ailab.check_env import Status, check_api_keys, evaluate_api_keys, format_results
 
 class TestCheckApiKeys(unittest.TestCase):
     """Tests for API key evaluation, warning hints, and secret non-leakage."""
@@ -85,10 +83,7 @@ class TestCheckApiKeys(unittest.TestCase):
             results = check_api_keys(keys=("OPENAI_API_KEY",))
             stdout_buffer = io.StringIO()
             with redirect_stdout(stdout_buffer):
-                for res in results:
-                    print(f"[{res.status.value}] {res.name}: {res.detail}")
-                    if res.fix_hint:
-                        print(f"  -> Fix: {res.fix_hint}")
+                print(format_results(results))
 
         printed_output = stdout_buffer.getvalue()
         inspected_texts = [printed_output]
