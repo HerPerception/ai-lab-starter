@@ -164,3 +164,12 @@ I noticed the tests took more than 2seconds (2.0064s) and when I checked, I foun
 |Any WARN (with zero FAILs) |	0	| Usable setup. A laptop without a GPU or without optional API keys yet can still run CPU benchmarks and local code cleanly. Returning 1 on warnings would falsely break CI builds on CPU-only runners. |
 |Any FAIL	| 1	| Broken setup. Missing Git or outdated Python means downstream commands will crash, so scripts and CI jobs must stop immediately. |
 |Any UNDETERMINED (with zero FAILs)	| 2 (or 1) | Unverified setup. Distinguishing 2 (inconclusive/error) from 1 (confirmed failure) lets advanced scripts tell whether a tool is genuinely missing (1) or just timed out/blocked (2). |
+
+# Lessons Map
+
+| Stage | Lesson Concept | Where Applied in Code | Key Takeaway |
+| :--- | :--- | :--- | :--- |
+| **Stage 1** | **Git & Branching** | `.gitignore`, `feature/check-env` branch | Ignore virtual environments, `.env` secrets, and build artifacts; commit small, tested pieces. |
+| **Stage 1** | **Python Packaging & CLI** | `pyproject.toml` (`[project.scripts]`), `src/` layout | Installing in editable mode (`pip install -e .`) registers the `ailab` entry point cleanly. |
+| **Stage 1** | **Subprocesses & Failure Modes** | `check_git()`, `check_gpu()` (`subprocess.run`) | Always set `timeout`, catch missing/broken binaries, and separate system probes from decision logic. |
+| **Stage 1** | **Safe Secret Handling** | `evaluate_api_keys()`, `test_check_api_keys.py` | Check `os.environ` without ever printing secret values, substrings, or character lengths. |
