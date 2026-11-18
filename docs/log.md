@@ -146,3 +146,21 @@ On my machine (at the time this feature was originally built), the “PyTorch mi
 
 ### Test Idea in Plain Words
 *"Create a fake environment containing a recognizable secret key (sk-proj-ULTRASECRET987654321XYZ). Run both the evaluation function and the full CLI main() output capture. Inspect every field of the returned Result objects and every character printed to stdout, confirming that neither the full key, any substring of it, nor its character length appears anywhere."*
+
+### Fixes I made to the Test File
+I noticed the tests took more than 2seconds (2.0064s) and when I checked, I found it was because tests/test_check_api_keys.py calls main() directly. Because all five checks were run on my real machine - including check_gpu() - that single test triggered 'import torch', which takes ~2 seconds to load into memory.
+
+**How I fixed it:** Isolating the leak prevention from main() (avoiding the 2-seconds import in check_gpu()), dropping the test runtime back to 0.008 seconds while still verifying every Result field and formatted printed output.
+
+
+**What Changed**
+1. Replaced main() with check_api_keys(keys=("OPENAI_API_KEY",)) plus the exact CLI print loop inside test_secret_never_leaks_in_results_or_stdout.
+2. Running python -m unittest discover -s tests -v will now complete all 25 tests in ~0.003s without touching PyTorch or hardware probes.
+
+### Exit Status Rule
+|Overall Run Outcome |	Exit Code	| Why CI & Shell Scripts Care |
+|-------|-------|------|
+|All PASS |	0	| Everything is ready. |
+|Any WARN (with zero FAILs) |	0	| Usable setup. A laptop without a GPU or without optional API keys yet can still run CPU benchmarks and local code cleanly. Returning 1 on warnings would falsely break CI builds on CPU-only runners. |
+|Any FAIL	| 1	| Broken setup. Missing Git or outdated Python means downstream commands will crash, so scripts and CI jobs must stop immediately. |
+|Any UNDETERMINED (with zero FAILs)	| 2 (or 1) | Unverified setup. Distinguishing 2 (inconclusive/error) from 1 (confirmed failure) lets advanced scripts tell whether a tool is genuinely missing (1) or just timed out/blocked (2). |
