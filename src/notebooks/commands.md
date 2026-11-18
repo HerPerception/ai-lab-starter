@@ -13,3 +13,8 @@ pip install -e .
 ```
 python -m unittest discover -s tests -v
 ```
+
+## To install PyTorch
+```
+ pip install torch --index-url https://download.pytorch.org/whl/cpu
+```

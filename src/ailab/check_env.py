@@ -152,10 +152,131 @@ def check_venv() -> Result:
         conda_env=os.environ.get("CONDA_DEFAULT_ENV"),
     )
 
+def evaluate_gpu(
+    torch_installed: bool,
+    cuda_available: bool = False,
+    mps_available: bool = False,
+    device_name: str | None = None,
+    nvidia_smi_device: str | None = None,
+    nvidia_smi_error: str | None = None,
+) -> Result:
+    """Interpret PyTorch and NVIDIA driver facts into a structured Result."""
+    if torch_installed and cuda_available:
+        return Result(
+            name="GPU",
+            status=Status.PASS,
+            detail=device_name or "CUDA GPU",
+        )
+
+    if torch_installed and mps_available:
+        return Result(
+            name="GPU",
+            status=Status.PASS,
+            detail=device_name or "Apple Silicon (MPS)",
+        )
+
+    if nvidia_smi_error is not None:
+        return Result(
+            name="GPU",
+            status=Status.UNDETERMINED,
+            detail=f"nvidia-smi error ({nvidia_smi_error})",
+            fix_hint="Run 'nvidia-smi' in your terminal to check driver health",
+        )
+
+    if not torch_installed:
+        if nvidia_smi_device:
+            return Result(
+                name="GPU",
+                status=Status.UNDETERMINED,
+                detail=f"NVIDIA GPU detected ({nvidia_smi_device}), but PyTorch is not installed",
+                fix_hint="Install PyTorch with CUDA support using the selector at https://pytorch.org",
+            )
+        return Result(
+            name="GPU",
+            status=Status.UNDETERMINED,
+            detail="PyTorch not installed and no NVIDIA GPU detected",
+            fix_hint="Install the right PyTorch build (CPU, CUDA, or MPS) via https://pytorch.org",
+        )
+
+    if nvidia_smi_device:
+        return Result(
+            name="GPU",
+            status=Status.WARN,
+            detail=f"NVIDIA GPU detected ({nvidia_smi_device}), but PyTorch is running on CPU",
+            fix_hint="Reinstall PyTorch with CUDA enabled using https://pytorch.org",
+        )
+
+    return Result(
+        name="GPU",
+        status=Status.WARN,
+        detail="no GPU found, using CPU",
+        fix_hint="Nothing needs fixing for CPU work; use a cloud GPU for large models",
+    )
+
+
+def _probe_nvidia_smi() -> tuple[str | None, str | None]:
+    """Return (gpu_name, error_message) from nvidia-smi without requiring PyTorch."""
+    smi_path = shutil.which("nvidia-smi")
+    if smi_path is None:
+        return None, None
+
+    try:
+        completed = subprocess.run(
+            args=[smi_path, "--query-gpu=name", "--format=csv,noheader"],
+            text=True,
+            capture_output=True,
+            check=True,
+            timeout=5,
+        )
+        first_line = completed.stdout.strip().splitlines()
+        gpu_name = first_line[0].strip() if first_line else "NVIDIA GPU"
+        return gpu_name, None
+    except subprocess.TimeoutExpired:
+        return None, "timed out after 5s"
+    except (subprocess.CalledProcessError, PermissionError, OSError) as exc:
+        return None, str(exc)
+
+
+def check_gpu() -> Result:
+    """Probe PyTorch and nvidia-smi to determine GPU availability."""
+    try:
+        import torch  # type: ignore[import-not-found]
+
+        if torch.cuda.is_available():
+            name = torch.cuda.get_device_name(0)
+            vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            return evaluate_gpu(
+                torch_installed=True,
+                cuda_available=True,
+                device_name=f"{name} ({vram_gb:.1f} GB VRAM)",
+            )
+
+        mps_backend = getattr(torch.backends, "mps", None)
+        if mps_backend is not None and mps_backend.is_available():
+            return evaluate_gpu(
+                torch_installed=True,
+                mps_available=True,
+                device_name="Apple Silicon (MPS)",
+            )
+
+        gpu_name, smi_error = _probe_nvidia_smi()
+        return evaluate_gpu(
+            torch_installed=True,
+            nvidia_smi_device=gpu_name,
+            nvidia_smi_error=smi_error,
+        )
+    except ImportError:
+        gpu_name, smi_error = _probe_nvidia_smi()
+        return evaluate_gpu(
+            torch_installed=False,
+            nvidia_smi_device=gpu_name,
+            nvidia_smi_error=smi_error,
+        )
+
 
 def main() -> None:
     """Run all environment checks and print formatted results."""
-    checks = [check_python(), check_git(), check_venv()]
+    checks = [check_python(), check_git(), check_venv(), check_gpu()]
     for result in checks:
         print(f"[{result.status.value}] {result.name} {result.detail}")
         if result.fix_hint:
