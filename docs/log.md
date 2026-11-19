@@ -1,4 +1,4 @@
-# PREDICTION VS. ACTUAL RESULTS
+## PREDICTION VS. ACTUAL RESULTS
 **PREDICTION - 1:** git log would print one commit made yesterday.
 
 **ACTUAL RESULT:** git log actually printed one commit:
@@ -44,4 +44,127 @@ docs/log.md
 ➜  ai-lab-starter git:(docs/add-log) ✗ 
 ```
 
-**VERDICT:** The command did not quite match the result because the docs folder was inexistent at the time the prediction was made. The prediction was made with the assumption that the folder already exists.
+**VERDICT:** The prediction did not quite match the result because the docs folder was inexistent at the time the prediction was made. The prediction was made with the assumption that the folder already exists.
+
+
+# Why I Added the pyproject.toml File at Stage 1.
+**What it fixes:** Python normally does not know where the local ailab folder lives unless I run commands from the exact right directory.
+
+**How it helps the tests:** Adding pyproject.toml let me install ailab into my venv as an editable package. Now my test files can simply write 'import ailab' from anywhere, and my code edits take effect immediately.
+
+
+# GIT CHECK FEATURE
+## Predicting what could go wrong:
+**Git works normally (Pass):** git is installed, runs git --version, and returns a version string with exit code 0.
+
+**Git is not installed (Fail):** Your computer cannot find git anywhere on your system PATH. This is a clear failure and needs a helpful fix hint.
+
+**Git freezes or hangs (Couldn't determine):** Something blocks git from finishing in time (such as a stalled network drive or popup prompt), hitting your timeout limit.
+
+**Git is broken or blocked (Couldn't determine):** A git file exists on your computer, so it is not "missing", but the OS refuses to run it due to a permission error or corrupted file.
+
+## The Python Tools I used:
+**shutil.which()**
+
+**subprocess.run()**
+
+*_(The uses of these tools is documented in notebooks/dependencies.md)_*
+
+
+**PREDICTION - 4:** Running the script after building the git checker feature would print the names and versions of both Python and Git with a PASS status.
+
+**ACTUAL RESULT:** When I ran 'ailab' from the project root directory, it threw errors because the venv was not correctly set up (venv was in the wrong folder and two vital lines in pyproject.toml were commented out by me and I forgot to uncomment it). But after the fix and setting up pyproject.toml and venv correctly, it gave the predicted output:
+```
+(venv) ➜  ai-lab-starter git:(feature/check-env) ✗ ailab
+[PASS] Python 3.12.3
+[PASS] Git 2.43.0
+(venv) ➜  ai-lab-starter git:(feature/check-env) ✗ 
+```
+
+**VERDICT:** The prediction matched the result once the environments were set up. This has taught me to always verify and not assume the right environment needed for my project has been set up and test to make sure. It further strengthens my mindset on the usefulness of this project as it verifies that the right environment is set up and the necessary requirements are satisfied before the programmer starts building.
+
+
+**PREDICTION - 5:** Running the script after building the venv_checker feature would print versions for both Python and Git and print PASS for all three checks and details for venv.
+
+**ACTUAL RESULT:** 
+```
+(venv) ➜  ai-lab-starter git:(feature/check-env) ✗ ailab
+[PASS] Python 3.12.3
+[PASS] Git 2.43.0
+[PASS] Virtualenv active (/home/recoding/ai-lab-starter/venv)
+```
+
+**VERDICT:** My prediction matched the result, output for venv_checker included the venv path (although I did not include the details for the venv_checker output).
+
+
+# GPU CHECK FEATURE
+
+## DESIGN DECISIONS
+|State | PyTorch Installed? | CUDA/MPS Available? | nvidia-smi works? | Outcome | Detail and Fix_hint |
+|------|------|-------|------|-------|--------|
+|Everything working(NVIDIA) | Yes | CUDA = True | Yes | PASS | Report device name + VRAM(no hint). |
+|Apple Silicon Mac | Yes | MPS = True | No | PASS | Report "Apple Silicon (MPS)" (no hint). |
+|NVIDIA hardware present, but CPU-only PyTorch | Yes | False | Yes | WARN | Hardware  exists, but PyTorch can not see it. Hint: reinstall PyTorch with CUDA support. |
+|No GPU hardware at all | Yes | False | No(missing/no devices) | WARN | "No GPU found, using CPU". Hint: Nothing needs fixing logically; Use cloud GPUs for heavy training. |
+|Driver/tool broken or hanging | Yes | False | Error/Timeout | UNDETERMINED | "nvidia-smi failed or timed out". Hint: run nvidia-smi manually to check driver state. |
+|PyTorch not installed | No | N/A | Yes/No | UNDETERMINED (or WARN) | "PyTorch not installed; can not check GPU runtime".Hint:pip install torch |
+
+
+## PREDICTION(S)
+**PREDICTION - 6:** Output after building the GPU_checker feature will include result for the GPU check.
+
+**ACTUAL RESULT:** 
+```
+(venv) ➜  ai-lab-starter git:(feature/check-env) ✗ ailab
+[PASS] Python 3.12.3
+[PASS] Git 2.43.0
+[PASS] Virtualenv active (/home/recoding/ai-lab-starter/venv)
+[COULDN'T DETERMINE] GPU PyTorch not installed; cannot verify GPU access
+  -> Fix: Install PyTorch to enable GPU detection: pip install torch
+```
+
+**VERDICT:** My prediction matched the output, although my predicition did not include the detail and it was vague. My prediction did not include that the status would be "COULDN'T DETEMINE".
+
+## NOTE FOR THE GPU_CHECKER FEATURE
+On my machine (at the time this feature was originally built), the “PyTorch missing” states can no longer be reached by a real run because PyTorch has been installed. Only the fake-input tests exercise them now. That’s a good reason for the asking/deciding split I built, since it lets me test states my machine can’t produce.
+
+
+# API KEYS SAFETY CHECKER FEATURE
+## DESIGN DECISION
+
+|Key State | How to Detect it | Outcome | Detail and Fix_Hint |
+|------|------|------|------|
+|Not set | val is None (missing from os.environ) | WARN | "OPENAI_API_KEY: not set" + Hint: "Add key to .env and load it into your shell" |
+|Set, but empty | val.strip() == "" (blank or spaces only) | WARN | "OPENAI_API_KEY: empty" + Hint: "Set a non-empty value for OPENAI_API_KEY" |
+|Placeholder value | Heuristic match (see below) | WARN | "OPENAI_API_KEY: looks like a placeholder" + Hint: "Replace template value with your actual API key" |
+|Real_looking value | Non-empty and passes placeholder checks | PASS | "OPENAI_API_KEY: set" (no fix_hint, no length, no prefix). |  
+
+### How to detect a placeholder without hardcoding every string: Check structural patterns common to .env.example templates:
+1. Bracketed/templated markers: Starts/ends with <...> or [...] or contains ... (e.g., sk-..., <your-key>).
+2. Placeholder keywords (case-insensitive): Contains substrings like your_, your-, changeme, placeholder, replace, example, dummy, insert, or todo.
+3. Repeated single character: All characters are identical (e.g., xxxxxxxx or 00000000).
+
+### Test Idea in Plain Words
+*"Create a fake environment containing a recognizable secret key (sk-proj-ULTRASECRET987654321XYZ). Run both the evaluation function and the full CLI main() output capture. Inspect every field of the returned Result objects and every character printed to stdout, confirming that neither the full key, any substring of it, nor its character length appears anywhere."*
+
+### Fixes I made to the Test File
+I noticed the tests took more than 2seconds (2.0064s) and when I checked, I found it was because tests/test_check_api_keys.py calls main() directly. Because all five checks were run on my real machine - including check_gpu() - that single test triggered 'import torch', which takes ~2 seconds to load into memory.
+
+**How I fixed it:** Isolating the leak prevention from main() (avoiding the 2-seconds import in check_gpu()), dropping the test runtime back to 0.008 seconds while still verifying every Result field and formatted printed output.
+
+
+**What Changed**
+1. Replaced main() with check_api_keys(keys=("OPENAI_API_KEY",)) plus the exact CLI print loop inside test_secret_never_leaks_in_results_or_stdout.
+2. Running python -m unittest discover -s tests -v will now complete all 25 tests in ~0.003s without touching PyTorch or hardware probes.
+
+### Exit Status Rule
+|Overall Run Outcome |	Exit Code	| Why CI & Shell Scripts Care |
+|-------|-------|------|
+|All PASS |	0	| Everything is ready. |
+|Any WARN (with zero FAILs) |	0	| Usable setup. A laptop without a GPU or without optional API keys yet can still run CPU benchmarks and local code cleanly. Returning 1 on warnings would falsely break CI builds on CPU-only runners. |
+|Any FAIL	| 1	| Broken setup. Missing Git or outdated Python means downstream commands will crash, so scripts and CI jobs must stop immediately. |
+|Any UNDETERMINED (with zero FAILs)	| 2 (or 1) | Unverified setup. Distinguishing 2 (inconclusive/error) from 1 (confirmed failure) lets advanced scripts tell whether a tool is genuinely missing (1) or just timed out/blocked (2). |
+
+### Logging Decision (`logging_setup.py`)
+- **Decision:** Keep `logging_setup.py` wired into `run_all_checks()` for unexpected exceptions, while deferring routine diagnostic logging for normal check outcomes.
+- **Why:** Normal check outcomes (`PASS`, `WARN`, `FAIL`, `UNDETERMINED`) already belong in the formatted CLI report (`format_results()`). Sending routine results to logs would duplicate output and clutter the terminal, whereas reserving `logging` (`logger.exception` / `AILAB_LOG_LEVEL=DEBUG`) for unexpected crashes keeps diagnostic tracebacks separate from user-facing output.
