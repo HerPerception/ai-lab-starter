@@ -144,7 +144,7 @@ def evaluate_venv(
         return Result(
             name="Virtualenv",
             status=Status.PASS,
-            detail=f"active ({prefix})",
+            detail=f"active ({os.path.basename(prefix)})",
         )
 
     if conda_env and conda_env != "base":
